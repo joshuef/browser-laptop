@@ -27,6 +27,7 @@ const dialog = electron.dialog
 const app = electron.app
 const uuid = require('node-uuid')
 const path = require('path')
+const url = require('url')
 
 const beforeSendHeadersFilteringFns = []
 const beforeRequestFilteringFns = []
@@ -77,44 +78,76 @@ module.exports.registerHeadersReceivedFilteringCB = (filteringFn) => {
  */
 function registerForBeforeRequest (session) {
   session.webRequest.onBeforeRequest((details, cb) => {
-    // Using an electron binary which isn't from Brave
-    if (!details.firstPartyUrl || shouldIgnoreUrl(details.url)) {
-      cb({})
-      return
-    }
 
-    for (let i = 0; i < beforeRequestFilteringFns.length; i++) {
-      let results = beforeRequestFilteringFns[i](details)
-      if (!module.exports.isResourceEnabled(results.resourceName, details.firstPartyUrl)) {
-        continue
+      const firstParty = url.parse(details.firstPartyUrl);
+
+      const parsed = url.parse(details.url);
+
+      if ( parsed.protocol === 'safe:' || parsed.host.endsWith('.safenet') )
+      {
+          const tokens = parsed.host.split('.');
+
+          const service = tokens.length > 2 ? tokens[0] : 'www';
+          const domain = tokens.length > 2 ? tokens[tokens.length -2] : tokens[0];
+          const path = parsed.pathname !== '/' ? parsed.pathname.split('/').slice(1).join('/') : 'index.html';
+          const newUrl = `http://localhost:8100/dns/${service}/${domain}/${encodeURIComponent(decodeURIComponent(path))}`;
+          cb({ url: newUrl });
       }
-      if (results.cancel) {
-        // We have no good way of knowing which BrowserWindow the blocking is for
-        // yet so send it everywhere and let listeners decide how to respond.
-        let message = details.resourceType === 'mainFrame'
-          ? messages.BLOCKED_PAGE
-          : messages.BLOCKED_RESOURCE
-        BrowserWindow.getAllWindows().forEach((wnd) =>
-          wnd.webContents.send(message, results.resourceName, details))
-        if (details.resourceType === 'image') {
-          cb({ redirectURL: transparent1pxGif })
-        } else {
-          cb({ cancel: true })
+      else if ( parsed.host === 'visualiser.maidsafe.net' )
+      {
+          cb({})
+
+      }
+      else if( firstParty.protocol !== 'file:')
+      {
+          //allow the app to load its own files
+            console.log('Blocked access to ' + details.url);
+            // Otherwise, cancel
+            cb({cancel: true});
+
+      }
+      else {
+            // standard Brave behaviour:
+
+            // Using an electron binary which isn't from Brave
+            if (!details.firstPartyUrl || shouldIgnoreUrl(details.url)) {
+              cb({})
+              return
+            }
+
+            for (let i = 0; i < beforeRequestFilteringFns.length; i++) {
+              let results = beforeRequestFilteringFns[i](details)
+              if (!module.exports.isResourceEnabled(results.resourceName, details.firstPartyUrl)) {
+                continue
+              }
+              if (results.cancel) {
+                // We have no good way of knowing which BrowserWindow the blocking is for
+                // yet so send it everywhere and let listeners decide how to respond.
+                let message = details.resourceType === 'mainFrame'
+                  ? messages.BLOCKED_PAGE
+                  : messages.BLOCKED_RESOURCE
+                BrowserWindow.getAllWindows().forEach((wnd) =>
+                  wnd.webContents.send(message, results.resourceName, details))
+                if (details.resourceType === 'image') {
+                  cb({ redirectURL: transparent1pxGif })
+                } else {
+                  cb({ cancel: true })
+                }
+                return
+              }
+              if (results.redirectURL) {
+                // Show the ruleset that was applied and the URLs that were upgraded in
+                // siteinfo
+                if (results.ruleset) {
+                  BrowserWindow.getAllWindows().forEach((wnd) =>
+                    wnd.webContents.send(messages.HTTPSE_RULE_APPLIED, results.ruleset, details))
+                }
+                cb({redirectURL: results.redirectURL})
+                return
+              }
+            }
+            cb({})
         }
-        return
-      }
-      if (results.redirectURL) {
-        // Show the ruleset that was applied and the URLs that were upgraded in
-        // siteinfo
-        if (results.ruleset) {
-          BrowserWindow.getAllWindows().forEach((wnd) =>
-            wnd.webContents.send(messages.HTTPSE_RULE_APPLIED, results.ruleset, details))
-        }
-        cb({redirectURL: results.redirectURL})
-        return
-      }
-    }
-    cb({})
   })
 }
 
