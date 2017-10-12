@@ -72,6 +72,8 @@ const contentSettings = require('../js/state/contentSettings')
 const privacy = require('../js/state/privacy')
 const settings = require('../js/constants/settings')
 const BookmarksExporter = require('./browser/bookmarksExporter')
+const setupSafeBrowsing = require('./safe_browsing')
+const protocol = electron.protocol;
 
 app.commandLine.appendSwitch('enable-features', 'BlockSmallPluginContent,PreferHtmlOverPlugins')
 
@@ -82,7 +84,9 @@ let errorCerts = {}
 const prefsRestartCallbacks = {}
 const prefsRestartLastValue = {}
 
-const defaultProtocols = ['http', 'https']
+// SAFE: Q. Do we need to trigger acheck here for if the browser is default?
+// Probably a good UX move.
+const defaultProtocols = ['http', 'https', 'safe', 'safe-auth']
 
 // exit cleanly on signals
 ;['SIGTERM', 'SIGHUP', 'SIGINT', 'SIGBREAK'].forEach((signal) => {
@@ -132,7 +136,11 @@ const notifyCertError = (webContents, url, error, cert) => {
   })
 }
 
+// protocol.registerStandardSchemes(['safe'], {secure: true})
 app.on('ready', () => {
+
+  setupSafeBrowsing();
+
   app.on('certificate-error', (e, webContents, url, error, cert, resourceType, overridable, strictEnforcement, expiredPreviousDecision, cb) => {
     let host = urlParse(url).host
     if (host && acceptCertDomains[host] === true) {

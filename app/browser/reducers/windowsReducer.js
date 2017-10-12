@@ -118,11 +118,11 @@ function windowDefaults (state) {
     minModalHeight: 100,
     minModalWidth: 100,
     windowOffset: 20,
-    webPreferences: {
-      // XXX: Do not edit without security review
-      sharedWorker: true,
-      partition: 'default'
-    }
+    // webPreferences: {
+    //   // XXX: Do not edit without security review
+    //   // sharedWorker: true,
+    //   partition: 'default'
+    // }
   }
 }
 
@@ -228,8 +228,8 @@ const createWindow = (state, action) => {
     titleBarStyle: 'hidden-inset',
     autoHideMenuBar: autoHideMenuBarSetting,
     title: appConfig.name,
-    webPreferences: defaults.webPreferences,
-    frame: !isWindows
+    // webPreferences: defaults.webPreferences,
+    // frame: !isWindows
   }
 
   if (process.platform === 'linux') {
@@ -246,6 +246,8 @@ const createWindow = (state, action) => {
 
   setImmediate(() => {
     const win = new BrowserWindow(Object.assign(windowProps, browserOpts, {disposition: frameOpts.disposition}))
+
+
     let restoredImmutableWindowState = action.get('restoredState')
     initWindowCacheState(win.id, restoredImmutableWindowState)
 

@@ -118,7 +118,29 @@ function applyRuleset (url, applicableRule) {
 function startHttpsEverywhere () {
   Filtering.registerBeforeRequestFilteringCB(onBeforeHTTPRequest)
   Filtering.registerBeforeRedirectFilteringCB(onBeforeRedirect)
+  // SAFE: Here we would enable requrest blocking
+  Filtering.registerBeforeRequestFilteringCB(onBeforeAll)
 }
+
+// SAFE: Here we would enable requrest blocking for SAFE mode.
+// Can also filter out wasm/js requests from non safe: sites (these should fail to avoid detection)
+function onBeforeAll (details, isPrivate) {
+  let result = { resourceName: module.exports.resourceName }
+
+  const mainFrameUrl = Filtering.getMainFrameUrl(details)
+  if (!mainFrameUrl || !Filtering.isResourceEnabled(module.exports.resourceName, mainFrameUrl, isPrivate)) {
+    return result
+  }
+
+
+  if( details.tabId === -1 )
+  {
+    return result;
+  }
+
+  return result
+}
+
 
 function onBeforeHTTPRequest (details, isPrivate) {
   let result = { resourceName: module.exports.resourceName }

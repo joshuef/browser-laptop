@@ -683,7 +683,7 @@ const initPartition = (partition) => {
 }
 module.exports.initPartition = initPartition
 
-const filterableProtocols = ['http:', 'https:', 'ws:', 'wss:', 'magnet:', 'file:']
+const filterableProtocols = ['http:', 'https:', 'ws:', 'wss:', 'magnet:', 'file:', 'safe:']
 
 function shouldIgnoreUrl (details) {
   // internal requests
